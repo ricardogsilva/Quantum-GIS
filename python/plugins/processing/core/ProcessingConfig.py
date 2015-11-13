@@ -212,6 +212,7 @@ class Setting:
     SELECTION = 3
     FLOAT = 4
     INT = 5
+    STRING_LIST = 6
 
     def __init__(self, group, name, description, default, hidden=False, valuetype=None,
                  validator=None, options=None):
@@ -248,6 +249,13 @@ class Setting:
                     if v and not os.path.exists(v):
                         raise ValueError(self.tr('Specified path does not exist:\n%s') % unicode(v))
                 validator = checkFileOrFolder
+            elif valuetype == self.STRING_LIST:
+                def checkStringList(v):
+                    try:
+                        [str(item) for item in v]
+                    except TypeError as err:
+                        raise ValueError(
+                            self.tr('Wrong parameter value:\n%s') % unicode(v))
             else:
                 validator = lambda x: True
         self.validator = validator
@@ -263,10 +271,24 @@ class Setting:
         if value is not None:
             if isinstance(self.value, bool):
                 value = unicode(value).lower() == unicode(True).lower()
+            elif self.valuetype == self.STRING_LIST:
+                value = self._deserialize_iterable(value)
             self.value = value
 
     def save(self):
-        QSettings().setValue(self.qname, self.value)
+        if self.valuetype == self.STRING_LIST:
+            value_to_store = self._serialize_iterable(self.value)
+            QSettings().setValue(self.qname, value_to_store)
+        else:
+            QSettings().setValue(self.qname, self.value)
+
+    def _serialize_iterable(self, iterable_value):
+        return str(iterable_value)
+
+    def _deserialize_iterable(self, stringified_iterable):
+        no_brackets = stringified_iterable.replace("[", "").replace("]", "")
+        return [item.strip() for item in no_brackets]
+
 
     def __str__(self):
         return self.name + '=' + unicode(self.value)

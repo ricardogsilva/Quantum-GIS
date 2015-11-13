@@ -33,7 +33,7 @@ from PyQt4.QtCore import Qt, QEvent, QPyNullVariant
 from PyQt4.QtGui import (QFileDialog, QDialog, QIcon, QStyle,
                          QStandardItemModel, QStandardItem, QMessageBox, QStyledItemDelegate,
                          QLineEdit, QSpinBox, QDoubleSpinBox, QWidget, QToolButton, QHBoxLayout,
-                         QComboBox)
+                         QComboBox, QListWidget, QListWidgetItem, QPushButton)
 
 from processing.core.ProcessingConfig import ProcessingConfig, Setting
 from processing.core.Processing import Processing
@@ -171,6 +171,14 @@ class SettingItem(QStandardItem):
                 self.setCheckState(Qt.Checked)
             else:
                 self.setCheckState(Qt.Unchecked)
+        elif setting.valuetype == Setting.STRING_LIST:
+            for value in setting.value:
+                sub_item = QStandardItem()
+                sub_item.setData(value, Qt.EditRole)
+                self.appendRow([sub_item])
+            last_sub_item = QStandardItem()
+            last_sub_item.setData("", Qt.EditRole)
+            self.appendRow([last_sub_item])
         else:
             self.setData(setting.value, Qt.EditRole)
 
@@ -191,6 +199,8 @@ class SettingDelegate(QStyledItemDelegate):
             return FileDirectorySelector(parent)
         elif setting.valuetype == Setting.FILE:
             return FileDirectorySelector(parent, True)
+        elif setting.valuetype == Setting.STRING_LIST:
+            return StringList(parent)
         elif setting.valuetype == Setting.SELECTION:
             combo = QComboBox(parent)
             combo.addItems(setting.options)
@@ -208,6 +218,9 @@ class SettingDelegate(QStyledItemDelegate):
                 return spnBox
             elif isinstance(value, (str, unicode)):
                 return QLineEdit(parent)
+            #else:
+            #    return super(QStyledItemDelegate, self).createEditor(
+            #        self, parent, options, index)
 
     def setEditorData(self, editor, index):
         value = self.convertValue(index.model().data(index, Qt.EditRole))
@@ -222,6 +235,15 @@ class SettingDelegate(QStyledItemDelegate):
         setting = index.model().data(index, Qt.UserRole)
         if setting.valuetype == Setting.SELECTION:
             model.setData(index, editor.currentText(), Qt.EditRole)
+        #elif setting.valuetype == Setting.STRING_LIST:
+        #    # retrieve the children items and for each one get its value
+        #    item = model.itemFromIndex(index)
+        #    values_to_store = []
+        #    for sub_row in xrange(item.rowCount()):
+        #        sub_item = item.child(sub_row)
+        #        sub_value = sub_item.data(Qt.EditRole)
+        #        values_to_store.append(sub_value)
+        #    model.setData(index, values_to_store)
         else:
             if isinstance(value, (str, basestring)):
                 model.setData(index, editor.text(), Qt.EditRole)
@@ -294,3 +316,43 @@ class FileDirectorySelector(QWidget):
 
     def setText(self, value):
         self.lineEdit.setText(value)
+
+
+class StringList(QWidget):
+
+    def __init__(self, parent=None):
+        super(StringList, self).__init__(parent)
+        # create gui
+        self.lw = QListWidget()
+        self.hbl = QHBoxLayout()
+        self.hbl.setMargin(0)
+        self.hbl.setSpacing(0)
+        self.hbl.addWidget(self.lw)
+        self.setLayout(self.hbl)
+
+        self.lw.itemChanged.connect(self._add_another_row)
+
+    def text(self):
+        all_values = []
+        for row in xrange(self.lw.count()):
+            item = self.lw.item(row)
+            current_text = item.text()
+            if current_text != "":
+                all_values.append(current_text)
+        return str(all_values)
+
+    def setText(self, value):
+        #no_brackets = value.replace("[", "").replace("]", "")
+        #all_values = [item.strip() for item in no_brackets.split(",")]
+        #for current_index in xrange(self.lw.count(), 0, -1):
+        for current_index in xrange(self.lw.count(), 0, -1):
+            current_item = self.lw.item(current_index)
+            self.lw.takeItem(current_item)
+        for new_value in value:
+            self.lw.addItem(new_value)
+
+    def _add_another_row(self, item):
+        current_row = self.lw.row(item)
+        if item.text() != "" and current_row == len(self.lw) - 1:
+            # this is the last row
+            self.lw.addItem("")
