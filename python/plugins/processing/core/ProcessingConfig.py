@@ -212,7 +212,6 @@ class Setting:
     SELECTION = 3
     FLOAT = 4
     INT = 5
-    STRING_LIST = 6
 
     def __init__(self, group, name, description, default, hidden=False, valuetype=None,
                  validator=None, options=None):
@@ -249,13 +248,6 @@ class Setting:
                     if v and not os.path.exists(v):
                         raise ValueError(self.tr('Specified path does not exist:\n%s') % unicode(v))
                 validator = checkFileOrFolder
-            elif valuetype == self.STRING_LIST:
-                def checkStringList(v):
-                    try:
-                        [str(item) for item in v]
-                    except TypeError as err:
-                        raise ValueError(
-                            self.tr('Wrong parameter value:\n%s') % unicode(v))
             else:
                 validator = lambda x: True
         self.validator = validator
@@ -269,25 +261,82 @@ class Setting:
         qsettings = QSettings()
         value = qsettings.value(self.qname, None)
         if value is not None:
-            if isinstance(self.value, bool):
-                value = unicode(value).lower() == unicode(True).lower()
-            elif self.valuetype == self.STRING_LIST:
-                value = self._deserialize_iterable(value)
-            self.value = value
+            self.value = self._deserialize_value(value)
 
     def save(self):
-        if self.valuetype == self.STRING_LIST:
-            value_to_store = self._serialize_iterable(self.value)
-            QSettings().setValue(self.qname, value_to_store)
-        else:
-            QSettings().setValue(self.qname, self.value)
+        serialized = self._serialize_value()
+        QSettings().setValue(self.qname, serialized)
 
-    def _serialize_iterable(self, iterable_value):
-        return str(iterable_value)
+    def _deserialize_value(self, stored_value):
+        """Convert the value read in QSettings back to its concrete type
 
-    def _deserialize_iterable(self, stringified_iterable):
-        no_brackets = stringified_iterable.replace("[", "").replace("]", "")
-        return [item.strip() for item in no_brackets]
+        This method should be reimplemented by classes that provide custom
+        valuetypes where the representation used by PyQt to store the value
+        of the instance may need to be specified. The default implementation
+        does nothing.
+        """
+        return stored_value
+
+    def _serialize_value(self):
+        """Store this instance's value in QSettings
+
+        This method should be reimplemented by classes that provide custom
+        valuetypes where the representation used by PyQt to store the value
+        of the instance may need to be specified. The default implementation
+        does nothing.
+        """
+        return self.value
+
+    def _build_config_gui(self, config_group, group_label):
+        """Build GUI elements for this setting.
+
+        This method allows an AlgorithmProvider to specify a more complex
+        GUI for its configuration settings.
+
+        Processing supplies a ready-made GUI for all items of the types
+        defined by this class, which covers the needs of most algorithm
+        providers. However, some providers may need to use more complex
+        types for their settings such as lists of strings or dictionaries.
+        These types may also require custom GUI elements.
+        Whenever there is such a need, the client code can reimplement
+        this method (in a new class, derived from this one) and provide
+        the custom GUI elements.
+
+        The default implementation does nothing, thus delegating to
+        Processing the creation of the ready-made GUI elements for the
+        predefined setting types. In order to define custom GUI elements
+        just be sure to return True, as this tells Processing that this
+        setting's GUI is not to be automatically created.
+
+        example:
+
+        .. code:: python
+
+           class MySpecializedSetting(ProcessingConfig.Setting):
+
+               def _build_config_gui(self, config_group, group_label):
+                   empty_item = QtGui.QStandardItem()
+                   empty_item.setEditable(False)
+                   config_group.insertRow(0, [label, empty_item])
+                   for sub_value in self.value:
+                       new_item = QtGui.QStandardItem(sub_value)
+                       empty_item = QtGui.QStandardItem()
+                       empty_item.setEditable(False)
+                       label.appendRow([new_item, empty_item])
+                   return True
+
+        :param setting:
+        :type setting: ProcessingConfig.Setting
+        :param config_group:
+        :type config_group: PyQt4.QtGui.QStandardItem
+        :param label:
+        :type label: PyQt4.QtGui.QStandardItem
+        :return:
+        :rtype: bool
+        """
+
+        return False
+
 
 
     def __str__(self):

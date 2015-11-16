@@ -127,18 +127,14 @@ class ConfigDialog(BASE, WIDGET):
                     labelItem = QStandardItem(setting.description)
                     labelItem.setIcon(icon)
                     labelItem.setEditable(False)
-                    self.items[setting] = SettingItem(setting)
-                    if setting.valuetype == Setting.STRING_LIST:
-                        emptyItem = QStandardItem()
-                        emptyItem.setEditable(False)
-                        groupItem.insertRow(0, [labelItem, emptyItem])
-                        for sub_value in setting.value:
-                            new_item = QStandardItem(sub_value)
-                            emptyItem = QStandardItem()
-                            emptyItem.setEditable(False)
-                            labelItem.appendRow([new_item, emptyItem])
+                    has_custom_gui= setting._build_config_gui(groupItem,
+                                                              labelItem)
+                    if has_custom_gui:
+                        self.items[setting] = "Custom"
                     else:
-                        groupItem.insertRow(0, [labelItem, self.items[setting]])
+                        setting_item = SettingItem(setting)
+                        self.items[setting] = setting_item
+                        groupItem.insertRow(0, [labelItem, setting_item])
 
             emptyItem = QStandardItem()
             emptyItem.setEditable(False)
