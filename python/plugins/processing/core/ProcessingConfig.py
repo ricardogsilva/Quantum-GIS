@@ -212,6 +212,7 @@ class Setting:
     SELECTION = 3
     FLOAT = 4
     INT = 5
+    CUSTOM = 6  # to be used when providers require custom GUI
 
     def __init__(self, group, name, description, default, hidden=False, valuetype=None,
                  validator=None, options=None):
@@ -337,7 +338,9 @@ class Setting:
 
         return False
 
-
+    def _create_delegate_editor(self):
+        """Build a GUI editor for the model delegate"""
+        return None
 
     def __str__(self):
         return self.name + '=' + unicode(self.value)

@@ -147,8 +147,6 @@ class ConfigDialog(BASE, WIDGET):
         for setting in self.items.keys():
             if isinstance(setting.value, bool):
                 setting.setValue(self.items[setting].checkState() == Qt.Checked)
-            elif setting.valuetype == Setting.STRING_LIST:
-                pass
             else:
                 try:
                     setting.setValue(unicode(self.items[setting].text()))
@@ -203,6 +201,8 @@ class SettingDelegate(QStyledItemDelegate):
             combo = QComboBox(parent)
             combo.addItems(setting.options)
             return combo
+        elif setting.valuetype == Setting.CUSTOM:
+            return setting._create_delegate_editor(parent, options, index)
         else:
             value = self.convertValue(index.model().data(index, Qt.EditRole))
             if isinstance(value, (int, long)):
