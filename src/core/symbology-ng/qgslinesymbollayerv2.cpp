@@ -302,6 +302,7 @@ void QgsSimpleLineSymbolLayerV2::renderPolyline( const QPolygonF& points, QgsSym
   applyDataDefinedSymbology( context, mPen, mSelPen, offset );
 
   p->setPen( context.selected() ? mSelPen : mPen );
+  p->setBrush( Qt::NoBrush );
 
   // Disable 'Antialiasing' if the geometry was generalized in the current RenderContext (We known that it must have least #2 points).
   if ( points.size() <= 2 &&
@@ -310,21 +311,41 @@ void QgsSimpleLineSymbolLayerV2::renderPolyline( const QPolygonF& points, QgsSym
        ( p->renderHints() & QPainter::Antialiasing ) )
   {
     p->setRenderHint( QPainter::Antialiasing, false );
+#if 0
     p->drawPolyline( points );
+#else
+    QPainterPath path;
+    path.addPolygon( points );
+    p->drawPath( path );
+#endif
     p->setRenderHint( QPainter::Antialiasing, true );
     return;
   }
 
   if ( qgsDoubleNear( offset, 0 ) )
   {
+#if 0
     p->drawPolyline( points );
+#else
+    QPainterPath path;
+    path.addPolygon( points );
+    p->drawPath( path );
+#endif
   }
   else
   {
     double scaledOffset = QgsSymbolLayerV2Utils::convertToPainterUnits( context.renderContext(), offset, mOffsetUnit, mOffsetMapUnitScale );
     QList<QPolygonF> mline = ::offsetLine( points, scaledOffset, context.feature() ? context.feature()->constGeometry()->type() : QGis::Line );
     for ( int part = 0; part < mline.count(); ++part )
-      p->drawPolyline( mline[ part ] );
+    {
+#if 0
+      p->drawPolyline( mline );
+#else
+      QPainterPath path;
+      path.addPolygon( mline[ part ] );
+      p->drawPath( path );
+#endif
+    }
   }
 }
 

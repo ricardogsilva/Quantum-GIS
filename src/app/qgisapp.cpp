@@ -1480,12 +1480,14 @@ void QgisApp::createActions()
 #ifdef Q_OS_MAC
   mActionHelpContents->setShortcut( QString( "Ctrl+?" ) );
   mActionQgisHomePage->setShortcut( QString() );
+  mActionReportaBug->setShortcut( QString() );
 #endif
 
   mActionHelpContents->setEnabled( QFileInfo( QgsApplication::pkgDataPath() + "/doc/index.html" ).exists() );
 
   connect( mActionHelpContents, SIGNAL( triggered() ), this, SLOT( helpContents() ) );
   connect( mActionHelpAPI, SIGNAL( triggered() ), this, SLOT( apiDocumentation() ) );
+  connect( mActionReportaBug, SIGNAL( triggered() ), this, SLOT( reportaBug() ) );
   connect( mActionNeedSupport, SIGNAL( triggered() ), this, SLOT( supportProviders() ) );
   connect( mActionQgisHomePage, SIGNAL( triggered() ), this, SLOT( helpQgisHomePage() ) );
   connect( mActionCheckQgisVersion, SIGNAL( triggered() ), this, SLOT( checkQgisVersion() ) );
@@ -6806,6 +6808,10 @@ void QgisApp::copyStyle( QgsMapLayer * sourceLayer )
     rootNode.setAttribute( "version", QString( "%1" ).arg( QGis::QGIS_VERSION ) );
     doc.appendChild( rootNode );
 
+    rootNode.setAttribute( "hasScaleBasedVisibilityFlag", selectionLayer->hasScaleBasedVisibility() ? 1 : 0 );
+    rootNode.setAttribute( "minimumScale", QString::number( selectionLayer->minimumScale() ) );
+    rootNode.setAttribute( "maximumScale", QString::number( selectionLayer->maximumScale() ) );
+
     /*
      * Check to see if the layer is vector - in which case we should also copy its geometryType
      * to avoid eventually pasting to a layer with a different geometry
@@ -6886,6 +6892,10 @@ void QgisApp::pasteStyle( QgsMapLayer * destinationLayer )
                                    QgsMessageBar::CRITICAL, messageTimeout() );
         return;
       }
+
+      selectionLayer->setScaleBasedVisibility( rootNode.attribute( "hasScaleBasedVisibilityFlag" ).toInt() == 1 );
+      selectionLayer->setMinimumScale( rootNode.attribute( "minimumScale" ).toFloat() );
+      selectionLayer->setMaximumScale( rootNode.attribute( "maximumScale" ).toFloat() );
 
       mLayerTreeView->refreshLayerSymbology( selectionLayer->id() );
       mMapCanvas->clearCache();
@@ -8106,6 +8116,10 @@ void QgisApp::apiDocumentation()
   }
 }
 
+void QgisApp::reportaBug()
+{
+  openURL( tr( "https://qgis.org/en/site/getinvolved/development/index.html#bugs-features-and-issues" ), false );
+}
 void QgisApp::supportProviders()
 {
   openURL( tr( "https://qgis.org/en/site/forusers/commercial_support.html" ), false );
