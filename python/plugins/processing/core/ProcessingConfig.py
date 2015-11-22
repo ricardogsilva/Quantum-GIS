@@ -202,10 +202,69 @@ class ProcessingConfig:
         return QCoreApplication.translate(context, string)
 
 
-class Setting:
+class Setting(object):
 
     """A simple config parameter that will appear on the config dialog.
+
+    Processing supplies a ready-made GUI for all items of the types
+    defined by this class, which covers the needs of most algorithm
+    providers.
+
+    Example:
+
+    .. code:: python
+
+       name = Setting("Testing provider", "my_setting1",
+                      valuetype=Setting.STRING)
+       age = Setting("Testing provider", "my_setting2",
+                     valuetype=Setting.FLOAT)
+       processingConfig.addSetting(name)
+       processingConfig.addSetting(age)
+
+    However, some providers may need to use more complex
+    types for their settings such as lists of strings or dictionaries.
+    These types may also require custom GUI elements.
+    Whenever there is such a need, plugin authors can become responsible
+    for providing their own GUI elements for the config dialog. In order to
+    do so, you must:
+
+    * Create a new class derived from this one
+    * Declare its valuetype to be Setting.CUSTOM
+    * Re-implement the `build_config_gui` method and provide the custom
+      GUI elements.
+    * Re-implement also the `create_delegate_editor` method
+    * If necessary, re-implement the `setData` method.
+
+    Example:
+
+    This example shows how we can create a new setting type that
+    stores lists of strings
+
+    .. code:: python
+
+       class MySpecializedSetting(ProcessingConfig.Setting):
+
+           def __init__(self, *args, **kwargs):
+               super(MySpecializedSetting, self).__init__(*args, **kwargs)
+               self.valuetype = self.CUSTOM
+               self.value = ["The first sub-setting",
+                             "The second sub-setting"]
+
+           def build_config_gui(self, config_group, group_label):
+               empty_item = QtGui.QStandardItem()
+               empty_item.setEditable(False)
+               config_group.insertRow(0, [label, empty_item])
+               for sub_value in self.value:
+                   new_item = QtGui.QStandardItem(sub_value)
+                   empty_item = QtGui.QStandardItem()
+                   empty_item.setEditable(False)
+                   label.appendRow([new_item, empty_item])
+               return True
+
+           def create_delegate_editor(self, parent, options, index):
+               return QtGui.QLineEdit(parent)
     """
+
     STRING = 0
     FILE = 1
     FOLDER = 2
@@ -276,7 +335,11 @@ class Setting:
         of the instance may need to be specified. The default implementation
         does nothing.
         """
-        return stored_value
+        if isinstance(self.value, bool):
+            value = unicode(stored_value).lower() == unicode(True).lower()
+        else:
+            value = stored_value
+        return value
 
     def _serialize_value(self):
         """Store this instance's value in QSettings
@@ -288,59 +351,13 @@ class Setting:
         """
         return self.value
 
-    def _build_config_gui(self, config_group, group_label):
-        """Build GUI elements for this setting.
+    def build_config_gui(self, config_group, group_label):
+        """Build custom GUI elements for this setting."""
+        raise NotImplementedError
 
-        This method allows an AlgorithmProvider to specify a more complex
-        GUI for its configuration settings.
-
-        Processing supplies a ready-made GUI for all items of the types
-        defined by this class, which covers the needs of most algorithm
-        providers. However, some providers may need to use more complex
-        types for their settings such as lists of strings or dictionaries.
-        These types may also require custom GUI elements.
-        Whenever there is such a need, the client code can reimplement
-        this method (in a new class, derived from this one) and provide
-        the custom GUI elements.
-
-        The default implementation does nothing, thus delegating to
-        Processing the creation of the ready-made GUI elements for the
-        predefined setting types. In order to define custom GUI elements
-        just be sure to return True, as this tells Processing that this
-        setting's GUI is not to be automatically created.
-
-        example:
-
-        .. code:: python
-
-           class MySpecializedSetting(ProcessingConfig.Setting):
-
-               def _build_config_gui(self, config_group, group_label):
-                   empty_item = QtGui.QStandardItem()
-                   empty_item.setEditable(False)
-                   config_group.insertRow(0, [label, empty_item])
-                   for sub_value in self.value:
-                       new_item = QtGui.QStandardItem(sub_value)
-                       empty_item = QtGui.QStandardItem()
-                       empty_item.setEditable(False)
-                       label.appendRow([new_item, empty_item])
-                   return True
-
-        :param setting:
-        :type setting: ProcessingConfig.Setting
-        :param config_group:
-        :type config_group: PyQt4.QtGui.QStandardItem
-        :param label:
-        :type label: PyQt4.QtGui.QStandardItem
-        :return:
-        :rtype: bool
-        """
-
-        return False
-
-    def _create_delegate_editor(self):
-        """Build a GUI editor for the model delegate"""
-        return None
+    def create_delegate_editor(self, parent, options, index):
+        """Build a custom GUI editor for the model delegate"""
+        raise NotImplementedError
 
     def __str__(self):
         return self.name + '=' + unicode(self.value)

@@ -128,10 +128,12 @@ class ConfigDialog(BASE, WIDGET):
                     labelItem = QStandardItem(setting.description)
                     labelItem.setIcon(icon)
                     labelItem.setEditable(False)
-                    has_custom_gui= setting._build_config_gui(groupItem,
-                                                              labelItem)
-                    if has_custom_gui:
-                        self.items[setting] = "Custom"
+
+                    if setting.valuetype == Setting.CUSTOM:
+                        setting_items = setting.build_config_gui(groupItem,
+                                                                 labelItem,
+                                                                 self)
+                        self.items[setting] = setting_items
                     else:
                         setting_item = SettingItem(setting)
                         self.items[setting] = setting_item
@@ -148,6 +150,8 @@ class ConfigDialog(BASE, WIDGET):
         for setting in self.items.keys():
             if isinstance(setting.value, bool):
                 setting.setValue(self.items[setting].checkState() == Qt.Checked)
+            elif setting.valuetype == Setting.CUSTOM:
+                setting.setValue(self.items[setting])
             else:
                 try:
                     setting.setValue(unicode(self.items[setting].text()))
@@ -203,7 +207,7 @@ class SettingDelegate(QStyledItemDelegate):
             combo.addItems(setting.options)
             return combo
         elif setting.valuetype == Setting.CUSTOM:
-            return setting._create_delegate_editor(parent, options, index)
+            return setting.create_delegate_editor(parent, options, index)
         else:
             value = self.convertValue(index.model().data(index, Qt.EditRole))
             if isinstance(value, (int, long)):
@@ -241,7 +245,7 @@ class SettingDelegate(QStyledItemDelegate):
                 model.setData(index, editor.value(), Qt.EditRole)
 
     def sizeHint(self, option, index):
-        return QSpinBox().sizeHint()
+        return QgsSpinBox().sizeHint()
 
     def eventFilter(self, editor, event):
         if event.type() == QEvent.FocusOut and hasattr(editor, 'canFocusOut'):
